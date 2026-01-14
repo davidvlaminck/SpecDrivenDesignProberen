@@ -10,6 +10,7 @@ Gebruikers moeten snel een **parallelle lijn** kunnen aanmaken op basis van een 
 - Op basis van **exact één geselecteerde bronlijn**: bij een klik in de kaart een parallelle lijn toevoegen aan een **door de plugin beheerde laag**.
 - Basisvalidatie (o.a. minimale lengte) en duidelijke foutmeldingen.
 - Export van de beheerde laag naar een afgesproken **OTL-conform** formaat.
+- Gebruik van de externe Python packages **OTLMOW-Model** en **OTLMOW-converter** voor OTL-datamodel en (de)serialisatie/conversie.
 
 ### Out of scope (voor nu)
 - Bulk-acties op meerdere bronlijnen tegelijk.
@@ -67,6 +68,16 @@ Gebruikers moeten snel een **parallelle lijn** kunnen aanmaken op basis van een 
 - Er is een exportactie die de beheerde laag exporteert naar het afgesproken OTL-conforme formaat.
 - Als verplichte OTL-attributen of -regels ontbreken: export faalt met een duidelijke melding.
 
+**FR-08 OTLMOW-Model gebruiken**
+- Voor het OTL-datamodel gebruikt de plugin de externe Python package **OTLMOW-Model**:
+  - repository: https://github.com/davidvlaminck/OTLMOW-Model
+- Het genereren/valideren van OTL-objecten gebeurt via deze library (dus niet via een eigen, losstaand model).
+
+**FR-09 OTLMOW-converter gebruiken**
+- Voor export/conversie gebruikt de plugin de externe Python package **OTLMOW-converter**:
+  - repository: https://github.com/davidvlaminck/OTLMOW-converter
+- Export gebruikt deze library als ‘single source of truth’ voor conversielogica waar mogelijk.
+
 ---
 
 ## Niet-functionele requirements (NFR)
@@ -87,6 +98,39 @@ Gebruikers moeten snel een **parallelle lijn** kunnen aanmaken op basis van een 
   - een werkend prototype,
   - geüpdatete spec,
   - en bijhorende tests.
+  
+**NFR-05 Cross-platform ondersteuning**
+- De plugin moet werken op **Windows** en **Linux** (minimaal voor de beoogde QGIS 3.x versies).
+- Platform-specifieke codepaden moeten vermeden worden, of expliciet afgeschermd en getest.
+
+**NFR-06 Dependency/packaging workaround voor QGIS Python**
+- Er moet een **praktische en veilige workaround** bestaan om **OTLMOW-Model** en **OTLMOW-converter** te gebruiken binnen de QGIS Python-omgeving, zonder dat gebruikers handmatig packages in de QGIS-systeempython hoeven te installeren.
+- De oplossing moet gedocumenteerd worden en cross-platform toepasbaar zijn.
+
+**Gekozen aanpak (voorlopig): vendoring/bundling in de plugin**
+- De plugin distribueert OTLMOW-Model en OTLMOW-converter (en noodzakelijke pure-Python dependencies) mee in een `vendor/` map in de plugin.
+- Bij plugin-initialisatie wordt `vendor/` (of `vendor/site-packages/`) aan `sys.path` toegevoegd vóór imports.
+- Doel: werken op een “schone” QGIS-installatie zonder extra pip installs in de QGIS-systeempython.
+
+**Randvoorwaarden bij vendoring**
+- We vendor’en enkel dependencies die **pure Python** zijn of waarvan we weten dat ze in QGIS al aanwezig zijn.
+- Licenties van meegebundelde dependencies worden opgenomen in de plugin-distributie.
+
+**NFR-07 Versiebeheer van vendored dependencies (updatebeleid)**
+- Er is een expliciet versiebeleid voor vendored packages:
+  - (a) OTLMOW-Model versie (tag/commit) en OTLMOW-converter versie (tag/commit) liggen vast per plugin-release.
+  - (b) We houden een `vendor/README.md` (of `docs/dependencies.md`) bij met:
+    - bronrepo + exacte versie/tag/commit,
+    - datum van update,
+    - korte changelog-impact (breaking changes, migraties).
+  - (c) Elke update van vendored packages triggert minimaal de export-tests (PyQGIS integratie) én unit tests.
+
+**(Semi-)automatische integratie van nieuwe versies**
+- Er is minstens één reproduceerbare manier om vendoring te updaten, bv. via een script in `scripts/` dat:
+  - de gewenste versies vastlegt (tags/commits),
+  - de packages ophaalt en in de plugin `vendor/` plaatst,
+  - en optioneel een “dependency manifest” bijwerkt (bv. `vendor/LOCK.json`).
+- Automatisch updaten zonder review is niet vereist; wél: automatiseren van het **mechanische** deel (download/copy/lockfile bijwerken) om fouten te vermijden.
 
 ---
 
@@ -116,6 +160,24 @@ Gebruikers moeten snel een **parallelle lijn** kunnen aanmaken op basis van een 
 - When: gebruiker exporteert
 - Then: outputbestand bevat n lijnen en voldoet aan OTL-regels (of faalt expliciet met duidelijke melding)
 
+**AC-06 (FR-08/FR-09, NFR-06)**
+- Given: plugin is geïnstalleerd op een “schone” QGIS-installatie (zonder manuele pip installs in QGIS-Python)
+- When: gebruiker exporteert OTL
+- Then: export gebruikt OTLMOW-Model/OTLMOW-converter succesvol, of faalt met een duidelijke melding die naar de gedocumenteerde oplossing verwijst
+
+**AC-07 (NFR-05)**
+- Given: dezelfde pluginversie
+- When: installatie/gebruik op Linux en op Windows
+- Then: kernflow (copy-parallel + export) werkt op beide platformen
+
+**AC-08 (NFR-07)**
+- Given: OTLMOW-Model/Converter worden geüpdatet naar een nieuwe tag/commit
+- When: de vendoring-updateprocedure wordt uitgevoerd
+- Then:
+  - de exacte versies staan gedocumenteerd/gelocked,
+  - de plugin start zonder import errors,
+  - en de relevante testset draait groen (minimaal exportpad) op Linux én Windows.
+
 ---
 
 ## Teststrategie (richtlijn)
@@ -135,3 +197,4 @@ Gebruikers moeten snel een **parallelle lijn** kunnen aanmaken op basis van een 
   - gebruik de QGIS-interpreter voor code die `qgis.*` importeert;
   - gebruik de project-venv voor QGIS-onafhankelijke code en unit tests.
 - Belangrijk: installeer niet zomaar packages in de QGIS-systeempython; dependency-conflicten kunnen QGIS breken. Documenteer elke extra dependency expliciet.
+- Omdat OTLMOW-Model en OTLMOW-converter externe dependencies zijn, moet de gekozen workaround (zie **NFR-06**) vermijden dat extra pip-installaties in de QGIS-systeempython nodig zijn.
