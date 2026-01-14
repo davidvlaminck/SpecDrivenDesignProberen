@@ -1,0 +1,17 @@
+[general]
+name=OTLMOW Markeringen
+qgisMinimumVersion=3.22
+description=Prototype plugin: copy-parallel markeringen + OTL export (spec-driven).
+version=0.0.0
+author=SpecDrivenDesignProberen
+email=
+about=Fase 0: minimale plugin die laadt en een toolbar-knop toont.
+
+[about]
+repository=
+tracker=
+homepage=
+
+[experimental]
+experimental=true
+
