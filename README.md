@@ -62,6 +62,27 @@ Notes:
 - On Windows, a **junction** (`/J`) is the easiest option and typically doesn't require admin rights.
 - If you prefer a real symlink on Windows, use `mklink /D` (often requires admin or Developer Mode).
  
+#### Troubleshooting (Windows): “This plugin is broken / no metadata file”
+
+If QGIS shows the plugin in red and claims there is **no metadata file**, it almost always means QGIS can't see a `metadata.txt` **at the plugin root folder level**.
+
+Checklist:
+- The plugins folder must contain a directory named **exactly** `otlmow_markeringen`.
+- Inside that directory, `metadata.txt` must exist at:
+  `%APPDATA%\QGIS\QGIS3\profiles\default\python\plugins\otlmow_markeringen\metadata.txt`
+- Make sure you did **not** end up with a nested folder like `...\otlmow_markeringen\otlmow_markeringen\metadata.txt`.
+- Windows sometimes hides file extensions in Explorer. Ensure the file is really named `metadata.txt` (not `metadata.txt.txt`).
+
+Recommended quick check (PowerShell):
+
+```powershell
+$p = Join-Path $env:APPDATA 'QGIS\QGIS3\profiles\default\python\plugins\otlmow_markeringen\metadata.txt'
+Test-Path $p
+Get-Content $p -TotalCount 5
+```
+
+After fixing the folder/junction, restart QGIS (the plugin list is cached).
+ 
 2. Start QGIS.
 3. Enable the plugin via **Plugins > Manage and Install Plugins**.
 4. Click the toolbar button **“OTLMOW: Plugin loaded”**.
