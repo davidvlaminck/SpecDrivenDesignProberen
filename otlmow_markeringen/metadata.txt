@@ -1,5 +1,6 @@
 [general]
 name=OTLMOW Markeringen
+title=OTLMOW Markeringen
 qgisMinimumVersion=3.22
 qgisMaximumVersion=3.99
 description=Prototype plugin: copy-parallel markeringen + OTL export (spec-driven).

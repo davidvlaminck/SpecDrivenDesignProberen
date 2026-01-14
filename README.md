@@ -83,6 +83,17 @@ Get-Content $p -TotalCount 5
 
 After fixing the folder/junction, restart QGIS (the plugin list is cached).
  
+Extra debug tip (cross-platform): validate what QGIS *should* see
+
+Run this against the plugin folder that sits inside the QGIS plugins directory:
+
+```powershell
+python scripts/validate_qgis_plugin_dir.py \
+  "$env:APPDATA\QGIS\QGIS3\profiles\default\python\plugins\otlmow_markeringen"
+```
+
+If this script prints `metadata.txt exists: False`, then QGIS will also treat it as missing.
+  
 2. Start QGIS.
 3. Enable the plugin via **Plugins > Manage and Install Plugins**.
 4. Click the toolbar button **“OTLMOW: Plugin loaded”**.
