@@ -12,227 +12,249 @@ We testen hierbij het gebruik van Spec Driven Design waarbij je zoveel mogelijk 
 
 We hergebruiken zoveel mogelijk de QGIS features.
 
+
 # Voorbeeld flow
-a) De gebruiker heeft een wegenregister laag klaarstaan in QGIS
-
-b) Selecteert één of meerdere lijnfeatures in deze laag
-
-c) Klik op een plugin-knop om deze lijnen toe te voegen aan een Markeringen-werklaag
-
-d) De gebruiker werkt nu in deze Markeringen-werklaag
-
-e) Optioneel: de gebruiker klikt meerdere features aan en klikt op een knop om deze te joinen (merge) of te offsetten.
-
-f) Optioneel: Merge knop voegt meerdere lijnen samen, waarbij er geen dubbele punten ontstaan
-
-g) Optioneel: Split knop laat toe om een lijn te splitsen in meerdere lijnen, waarbij de attributen van de bronlijn worden overgenomen en aangepast kunnen worden voor deze nieuwe lijnen.
-
-h) Optioneel: Offset knop maakt een parallelle lijn op basis van de geselecteerde lijn, waarbij je deze kan verschuiven door te klikken en te bewegen, en waarbij je ook kan kiezen om te kopiëren (ctrl+klik) of te verschuiven (klik). Dit werkt zoals een af/aan modus: zolang je in de modus blijft kan je van dezelfde bronlijn vertrekken en meerdere lijnen aanmaken tot je deze modus uitzet.
-
-i) de gebruiker vult attributen in voor deze lijnen, zoals kleur, positie (links, midden, rechts), type, coprocode, etc. waarna deze attributen berekend of afgeleid worden
-
-j) Optioneel: op basis van attributen symbologie aanpassen
-
-k) De gebruiker herhaalt een aantal van deze stappen
-
-l) De gebruiker klikt op de export knop. De volledige laag wordt geëxporteerd conform de OTL door gebruik te maken van de otlmow-converter package.
-
-bij c) gaan achterliggend niet alleen deze features gekopieerd worden, maar worden ook extra attributen toegevoegd die een gebruiker kan invullen, zoals keuzelijsten
+De korte voorbeeldstappen zijn hieronder geïntegreerd in de sectie "Gedetailleerde user flow". Zie ook de gescheiden kernflows in de scope: "Import selected" (bulk import van geselecteerde features) en "Copy parallel" (kaartklik gebaseerde offset-creatie).
 
 
 
 
-## Scope
+## Scope (herzien)
+De eerste 42 regels hierboven vormen de leidraad voor het project. Hieronder zijn termen en boundaries verduidelijkt zodat de rest van dit document consistent is met die leidraad.
+
+### Belangrijke splitsing van flows
+Om verwarring te vermijden beschrijven we twee duidelijke en afzonderlijke flows die beide in de eerste 42 regels genoemd of geïmpliceerd worden:
+
+- Import selected (optioneel helper-feature)
+  - Doel: één of meerdere geselecteerde lijnen uit een bestaande bronlaag kopiëren naar de door de plugin beheerde laag ('Markeringen'), waarbij relevante attributen worden overgenomen en aangevuld met plugin-specifieke velden (keuzelijsten, status, afgeleid waarden).
+  - Gebruik: gebruiker selecteert één of meerdere features en klikt op "Import selected". Dit is een losse actie (geen "Copy parallel" modus).
+
+- Copy parallel (core feature)
+  - Doel: op basis van exact één geselecteerde bronlijn en een kaartklik een nieuwe parallelle lijn (offset-curve) aanmaken die door het klikpunt gaat en toevoegen aan de beheerde laag. Deze modus blijft actief totdat de gebruiker ze uitschakelt.
+  - Voorwaarden: precies één geselecteerde bronlijn (FR-01). Als dat niet het geval is: geen creatie en duidelijke melding.
+
 ### In scope
-- Een modus **“Copy parallel”** die actief blijft tot de gebruiker die uitzet.
-- Op basis van **exact één geselecteerde bronlijn**: bij een klik in de kaart een parallelle lijn toevoegen aan een **door de plugin beheerde laag**.
+- Implementatie van beide hierboven beschreven flows, waarbij "Copy parallel" de kernfunctionaliteit is.
 - Basisvalidatie (o.a. minimale lengte) en duidelijke foutmeldingen.
-- Export van de beheerde laag naar een afgesproken **OTL-conform** formaat.
-- Gebruik van de externe Python packages **OTLMOW-Model** en **OTLMOW-converter** voor OTL-datamodel en (de)serialisatie/conversie.
+- Export van de beheerde laag naar een afgesproken OTL-conform formaat met gebruik van OTLMOW-Model en OTLMOW-converter.
 
 ### Out of scope (voor nu)
-- Bulk-acties op meerdere bronlijnen tegelijk.
-- Complexe topologie-/snapping-regels (buiten wat QGIS standaard aanbiedt).
-- Multi-user editing / database locking scenarios.
+- Complexe bulk bewerkingen tijdens de eerste iteraties (bulk-opties kunnen later toegevoegd worden als optionele feature aan de import-flow).
+- Geavanceerde topologie rules beyond default QGIS snapping.
+- Multi-user editing / database locking.
 
-## Terminologie & definities
-- **Bronlijn**: de (exact één) geselecteerde lijnfeature waarop de parallelle lijn gebaseerd wordt.
-- **Beheerde laag**: een laag die door de plugin wordt aangemaakt/beheerd en waarin alle gegenereerde markeringen terechtkomen.
-- **OTL-conform**: het exportresultaat voldoet aan de afgesproken OTL-structuur (verplichte attributen, types, domeinwaarden, …). *(OTL-detail: nog te concretiseren in een volgende iteratie.)*
-- **Parallel**: “offset-curve” van de bronlijn. De nieuwe lijn moet door het klikpunt gaan (offsetafstand wordt dus afgeleid uit het punt t.o.v. de bronlijn).
+## Terminologie & definities (uitgebreid)
+- **Bronlijn**: de geselecteerde enkelvoudige (single-part) lijnfeature (exact één) waarop een "Copy parallel" operatie is gebaseerd. Multi-part geometrieën zijn **niet toegestaan** als bronlijn; bij selectie van een multi-part geometrie moet de plugin een foutmelding tonen en de actie blokkeren.
+- **Beheerde laag**: een vectorlaag (memory of geopackage afhankelijk van implementatie) die door de plugin gemaakt en beheerd wordt en alle gegenereerde markeringen bevat.
+- **OTL-conform**: het exportresultaat voldoet aan de afgesproken OTL-structuur en vereiste attributen voor de doelconversie.
+- **Offset-referentiepunt**: het punt op de bronlijn dat het dichtst bij het klikpunt ligt (projectie van klikpunt op de bronlijn). Dat punt bepaalt het lokale tangentsegment voor het maken van de offset.
 
-## User flow (gewenst gebruik)
-1. Gebruiker selecteert (of tekent en selecteert) één lijn in QGIS (**bronlijn**).
-2. Gebruiker activeert de knop **“Copy parallel”** (modus blijft actief).
+## Main user flow — Import selected (primary)
+1. Gebruiker selecteert één of meerdere lijnfeatures in een bronlaag.
+2. Gebruiker klikt op **Import selected**.
+3. De plugin valideert geselecteerde features: alleen single-part lijnen toegestaan in de beheerde laag; bij multi-part features: toon melding en sla die feature over (option: in een toekomstige uitbreiding aanbieden om automatisch te splitten).
+4. Voor elke toegestane feature: kopieer geometrie en relevante attributen volgens een vooraf gedefinieerde mapping naar de beheerde laag; vul plugin-specifieke velden aan met defaults en voeg plugin-meta (bron-id, timestamp) toe.
+5. Na import: toon samenvatting (aantal succesvol geïmporteerd, overgeslagen wegens validatie, fouten) en zet de gebruiker in de beheerde laag verder (bewerken, attributen invullen, symbologie aanpassen).
+6. De gebruiker kan vanuit de beheerde laag de **Copy parallel** subflow activeren om offsets op basis van één bronlijn te maken (zie subflow).
+7. Uiteindelijk kan de gebruiker de beheerde laag exporteren naar OTL via de export-knop.
+
+## Subflow — Copy parallel (offset creatie, detail)
+Doel: een hulpmiddel binnen de main workflow waarmee de gebruiker op basis van exact één geselecteerde single-part bronlijn en een kaartklik een parallelle lijn kan maken.
+1. Gebruiker selecteert exact één single-part lijn in de beheerde laag of in de bronlaag (bronlijn). Als de geselecteerde feature een multi-part geometrie is: toon foutmelding en stop.
+2. Gebruiker activeert de knop **"Copy parallel"**; de modus blijft actief en de UI geeft dit zichtbaar aan.
 3. Gebruiker klikt op een punt in de kaart.
-4. De plugin maakt een nieuwe lijn aan:
-   - parallel aan de bronlijn,
-   - door het klikpunt,
-   - en voegt deze toe aan de beheerde laag.
-5. Gebruiker kan stap 3–4 herhalen om meerdere parallelle lijnen te maken.
-6. Gebruiker zet de modus uit (knop deactiveren).
-7. Gebruiker klikt op **Export** om de beheerde laag OTL-conform te exporteren.
+4. De plugin projecteert het klikpunt op de bronlijn om het offset-referentiepunt te bepalen en berekent een offset-curve die lokaal parallel is aan het bronsegment en door het klikpunt gaat.
+5. Validatie: controleer lengte (≥ 1.0 m) en geometrische geldigheid (geen self-intersections, geen invalid geometry). Ongeldige resultaten worden niet toegevoegd; toon een duidelijke melding en suggesties voor correctie.
+6. Indien geldig: voeg de nieuwe lijn toe aan de beheerde laag (met benodigde OTL-velden en plugin-meta).
+7. Gebruiker kan stap 3–6 herhalen zolang de modus actief blijft en afsluiten door opnieuw op de knop te klikken of via cancel.
 
 ---
 
-## Functionele requirements (FR)
-**FR-01 Selectie van bronlijn**
-- De plugin gebruikt exact één geselecteerde lijnfeature als bron.
-- Als er **geen** of **meer dan één** feature geselecteerd is: toon een duidelijke melding en voer geen actie uit.
+## Functionele requirements (FR) — geüpdatet en gescheiden per flow
+**FR-01 Import selected — selectie & import**
+- De plugin ondersteunt import van één of meerdere geselecteerde lijnfeatures in een bronlaag naar de beheerde laag.
+- Een gebruiker kan dit meerdere keren doen: alle geïmporteerde features worden verzameld in één enkele beheerde laag (dus herhaalde imports vanuit een bronlaag voegen toe aan dezelfde beheerde laag, zonder meerdere beheerde lagen aan te maken).
+- Alleen single-part lijnen worden geaccepteerd; multi-part geometrieën worden overgeslagen en de gebruiker ontvangt een melding met uitleg.
 
-**FR-02 Modus “Copy parallel”**
-- De modus kan aan/uit gezet worden via een UI-element (toolbar-knop).
-- Terwijl de modus aan staat, creëert elke klik in de kaart precies **één** nieuwe lijnfeature in de beheerde laag.
+**FR-02 Import selected — attributen & mapping**
+- Bij import worden relevante attributen gekopieerd volgens een vooraf gedefinieerde mapping; ontbrekende velden worden aangevuld met defaultwaarden.
 
 **FR-03 Beheerde laag**
-- Als de beheerde laag nog niet bestaat, maakt de plugin die automatisch aan.
-- Alle gegenereerde lijnen worden toegevoegd aan deze laag.
-- De beheerde laag is duidelijk herkenbaar (naam/metadata) als “plugin-managed”.
+- Als de beheerde laag nog niet bestaat, maakt de plugin die automatisch aan (memory of geopackage configuratie optie).
+- Alle geïmporteerde en gegenereerde lijnen worden toegevoegd aan deze laag. Het schema bevat velden voor OTL-attributes en plugin-meta (bron-id, afgeleid waarden).
 
-**FR-04 Geometrie: parallelle lijn door klikpunt**
-- Bij een kaartklik wordt een parallelle lijn (offset-curve) berekend t.o.v. de bronlijn.
-- De resulterende lijn moet door het gekozen klikpunt gaan.
-- Als het niet mogelijk is om een geldige parallelle lijn te berekenen: toon foutmelding, voeg niets toe.
+**FR-04 Copy parallel — modus & gebruik**
+- Copy parallel is een subflow/modaliteit die exact één geselecteerde single-part bronlijn vereist.
+- De modus kan aan/uit gezet worden via een UI-element (toolbar-knop). Terwijl de modus actief is, creëert elke kaartklik maximaal één nieuwe lijnfeature in de beheerde laag (of toont een foutmelding als creatie niet mogelijk is).
 
-**FR-05 Validatie: minimale lengte**
-- Alleen lijngeometriën met lengte **≥ 1,0 meter** zijn geldig.
-- Ongeldige lijnen worden niet opgeslagen; de gebruiker krijgt een melding met de reden.
+**FR-05 Geometrie: parallelle lijn door klikpunt (technisch, Copy parallel)**
+- Offset-referentie: de plugin projecteert het klikpunt op de (single-part) bronlijn en gebruikt het dichtstbijzijnde punt op de lijn als referentie.
+- Offset-algoritme: voorkeur gaat uit naar het hergebruiken van de QGIS-geometrie-implementatie/algoritmes (PyQGIS API) om offsets en geometriebewerkingen uit te voeren. Alleen als dat niet mogelijk of onacceptabel is (compatibiliteit, performance of licentie) wordt een pure-Python fallback gebruikt. Details en testcases zijn vereist voor beide paden.
+- Multi-part lijnen: niet toegestaan als bronlijn; bij detectie: toon foutmelding en sla de actie over.
+- Speciale gevallen (korte lijnen, self-intersections) leiden tot validatiefouten en duidelijke meldingen.
 
-**FR-06 CRS / projecties**
-- De plugin werkt correct ongeacht project-CRS en bronlaag-CRS.
-- Lengtevalidatie gebeurt in **meters**. (Implementatiekeuze: reprojectie naar een meter-gebaseerde CRS of geodetische meting; dit wordt vastgelegd tijdens implementatie en gedekt door tests.)
+**FR-06 Validatie: minimale lengte**
+- Alleen lijngeometriën met lengte **≥ 1,0 meter** (gemeten in meters) zijn geldig.
 
-**FR-07 Export (OTL-conform)**
-- Er is een exportactie die de beheerde laag exporteert naar het afgesproken OTL-conforme formaat.
-- Als verplichte OTL-attributen of -regels ontbreken: export faalt met een duidelijke melding.
+**FR-07 CRS / projecties**
+- De plugin moet correct werken ongeacht project-CRS en bronlaag-CRS.
+- Standaard (default) werken we in het Belgische projectieprofiel: Lambert2008 (of als fallback Lambert72). Dat betekent dat berekeningen en validatie in meters standaard uitgevoerd worden in Lambert2008 wanneer mogelijk.
+- Implementatie-keuze: indien het project-CRS afwijkt van Lambert2008 en project-CRS is projected en units in meters: berekeningen en validatie gebeuren in het project-CRS. Anders: reprojecteer tijdelijk naar Lambert2008 (of gebruik geodetische metingen via QgsDistanceArea) om lengte in meters te bepalen. Deze keuze moet getest en gedocumenteerd.
 
-**FR-08 OTLMOW-Model gebruiken**
-- Voor het OTL-datamodel gebruikt de plugin de externe Python package **OTLMOW-Model**:
-  - repository: https://github.com/davidvlaminck/OTLMOW-Model
-- Het genereren/valideren van OTL-objecten gebeurt via deze library (dus niet via een eigen, losstaand model).
+**FR-08 Export (OTL-conform)**
+- De exportactie gebruikt OTLMOW-Model (datamodel) en OTLMOW-converter (serialisatie) om OTL-conforme output te produceren.
 
-**FR-09 OTLMOW-converter gebruiken**
-- Voor export/conversie gebruikt de plugin de externe Python package **OTLMOW-converter**:
-  - repository: https://github.com/davidvlaminck/OTLMOW-converter
-- Export gebruikt deze library als ‘single source of truth’ voor conversielogica waar mogelijk.
+**FR-09 Externe libraries: OTLMOW-Model & OTLMOW-converter**
+- Gebruik de twee opgegeven externe repositories als single source of truth voor datamodel en conversie.
 
 ---
 
-## Niet-functionele requirements (NFR)
+## Niet-functionele requirements (NFR) — verduidelijkingen
 **NFR-01 Gebruiksvriendelijkheid**
-- De UI maakt duidelijk of “Copy parallel” aan/uit staat.
-- Bij fouten krijgt de gebruiker een actiegerichte melding (wat ging fout + hoe oplossen).
+- Duidelijke UI-status, foutmeldingen met oplossingssuggesties.
 
 **NFR-02 Testbaarheid**
-- Zo veel mogelijk logica moet unit-testbaar zijn zonder QGIS (pure Python modules).
-- QGIS/PyQGIS-afhankelijke delen worden dun gehouden (adapterlaag), zodat de kernlogica testbaar blijft.
+- Kernlogica moet unit-testbaar zijn zonder QGIS. PyQGIS-afhankelijke integratiecode blijft beperkt tot adapterlaag.
+- Indien mogelijk en praktisch uitvoerbaar in de CI/dev-omgeving: voorziet de teststraat ook unit/integratietests die QGIS-functies aanroepen (mocked of via een geconfigureerde PyQGIS-testomgeving) om te verifiëren dat de juiste QGIS-API functies worden aangesproken en dat adapterlagen correct werken.
 
 **NFR-03 Versiebeheer & documentatie**
-- Ontwikkeling gebeurt met git.
-- Specificatie en technische beslissingen worden bijgehouden (spec-driven development).
+- Git en spec-driven besluitvorming; changelogs bij grote wijzigingen.
 
 **NFR-04 Iteratieve ontwikkeling (fasering)**
-- Ontwikkeling gebeurt in fases waarbij elke fase eindigt met:
-  - een werkend prototype,
-  - geüpdatete spec,
-  - en bijhorende tests.
-  
+- Elke fase levert werkend prototype, bijgewerkte spec en tests.
+
 **NFR-05 Cross-platform ondersteuning**
-- De plugin moet werken op **Windows** en **Linux** (minimaal voor de beoogde QGIS 3.x versies).
-- Platform-specifieke codepaden moeten vermeden worden, of expliciet afgeschermd en getest.
+- Plugin moet werken op Windows en Linux. Documenteer verschillen (symlink/junction gedrag op Windows, path separators, bestandspermissies) en test beide platformen.
 
 **NFR-06 Dependency/packaging workaround voor QGIS Python**
-- Er moet een **praktische en veilige workaround** bestaan om **OTLMOW-Model** en **OTLMOW-converter** te gebruiken binnen de QGIS Python-omgeving, zonder dat gebruikers handmatig packages in de QGIS-systeempython hoeven te installeren.
-- De oplossing moet gedocumenteerd worden en cross-platform toepasbaar zijn.
+- Gekozen aanpak (voorlopig): vendoring/bundling van OTLMOW-Model en OTLMOW-converter (en noodzakelijke pure-Python dependencies) in `vendor/` map binnen de plugin.
+- Bij plugin-initialisatie wordt `vendor/` (of `vendor/site-packages/`) vóór imports aan `sys.path` toegevoegd.
 
-**Gekozen aanpak (voorlopig): vendoring/bundling in de plugin**
-- De plugin distribueert OTLMOW-Model en OTLMOW-converter (en noodzakelijke pure-Python dependencies) mee in een `vendor/` map in de plugin.
-- Bij plugin-initialisatie wordt `vendor/` (of `vendor/site-packages/`) aan `sys.path` toegevoegd vóór imports.
-- Doel: werken op een “schone” QGIS-installatie zonder extra pip installs in de QGIS-systeempython.
-
-**Randvoorwaarden bij vendoring**
-- We vendor’en enkel dependencies die **pure Python** zijn of waarvan we weten dat ze in QGIS al aanwezig zijn.
-- Licenties van meegebundelde dependencies worden opgenomen in de plugin-distributie.
+**NFR-06a Vendoring randvoorwaarden**
+- Alleen pure-Python dependencies of libraries waarvan we weten dat de binaire delen compatibel zijn met QGIS-systempython mogen vendor'ed worden.
+- Neem licentieteksten op (LICENSES of vendor/README.md).
 
 **NFR-07 Versiebeheer van vendored dependencies (updatebeleid)**
-- Er is een expliciet versiebeleid voor vendored packages:
-  - (a) OTLMOW-Model versie (tag/commit) en OTLMOW-converter versie (tag/commit) liggen vast per plugin-release.
-  - (b) We houden een `vendor/README.md` (of `docs/dependencies.md`) bij met:
-    - bronrepo + exacte versie/tag/commit,
-    - datum van update,
-    - korte changelog-impact (breaking changes, migraties).
-  - (c) Elke update van vendored packages triggert minimaal de export-tests (PyQGIS integratie) én unit tests.
+- OTLMOW-Model en OTLMOW-converter versie (tag/commit) wordt vastgezet per plugin-release.
+- Houd `vendor/LOCK.json` of `vendor/MANIFEST.md` bij met exacte commit/tags en datum.
 
-**(Semi-)automatische integratie van nieuwe versies**
-- Er is minstens één reproduceerbare manier om vendoring te updaten, bv. via een script in `scripts/` dat:
-  - de gewenste versies vastlegt (tags/commits),
-  - de packages ophaalt en in de plugin `vendor/` plaatst,
-  - en optioneel een “dependency manifest” bijwerkt (bv. `vendor/LOCK.json`).
-- Automatisch updaten zonder review is niet vereist; wél: automatiseren van het **mechanische** deel (download/copy/lockfile bijwerken) om fouten te vermijden.
+**NFR-08 Semi-automatische integratie / update procedure**
+- Voorzie een script `scripts/update_vendor.py` (documentatie en voorbeeld) dat:
+  - leest gewenste versies (bv. `vendor/LOCK.json` of `scripts/vendor-versions.yaml`),
+  - clone/copy de repository of download de distributie-artifacten,
+  - plaatst de relevante Python modules in `plugin_folder/vendor/`,
+  - werkt `vendor/LOCK.json` bij met bron-URL en exacte commit/tag,
+  - valideert basisimport (importeert de vendored package in een tijdelijke Python-proces om import errors te detecteren).
+- Updates vereisen code-review en test-run; automatische deploys zonder review zijn niet toegestaan.
+
+**NFR-09 Metadata & installability**
+- De plugin bevat een geldig `metadata.txt` (of `metadata.json`, afhankelijk van target QGIS) met de verplichte velden: name, qgisMinimumVersion, description, version, author, email, tags en speciaal: `title` of `name` (zorg dat QGIS de vereiste velden ziet). Deze metadata wordt gevalideerd door de repo-scripts (`scripts/check_plugin_structure.py`).
+
+**NFR-10 Ontwikkelingssymlinks & cross-platform dev workflow**
+- Documenteer hoe ontwikkelaars de plugin als symlink/junction toevoegen in QGIS op zowel Linux als Windows. Op Windows kan dit extra rechten of gebruik van NTFS-junctions vereisen. Voeg instructies toe in `README.md`.
 
 ---
 
-## Acceptatiecriteria (Given/When/Then)
+## Acceptatiecriteria (Given/When/Then) — aangepast
 **AC-01 (FR-01)**
-- Given: 0 of >1 selectie
+- Given: 0 of >1 selectie bij "Copy parallel"
 - When: gebruiker activeert modus of klikt om te creëren
-- Then: er wordt niets aangemaakt en er verschijnt een foutmelding
+- Then: er wordt niets aangemaakt en een duidelijke melding wordt getoond
 
-**AC-02 (FR-02/FR-04)**
-- Given: exact één bronlijn geselecteerd en modus “Copy parallel” is aan
+**AC-02 (FR-02/FR-05)**
+- Given: exact één bronlijn geselecteerd en modus "Copy parallel" is aan
 - When: gebruiker klikt op punt P
-- Then: er verschijnt exact één nieuwe lijn in de beheerde laag die parallel is aan de bronlijn en door P gaat
+- Then: er verschijnt exact één nieuwe lijn in de beheerde laag die parallel is aan de bronlijn en door P gaat (of faalt met duidelijk bericht)
 
 **AC-03 (FR-05)**
-- Given: de berekende lijn heeft lengte < 1,0 m
-- When: de plugin probeert deze toe te voegen
-- Then: de feature wordt niet toegevoegd en de gebruiker krijgt een melding
+- Given: berekende lijn heeft lengte < 1,0 m
+- When: probeert toe te voegen
+- Then: feature wordt niet toegevoegd en gebruiker krijgt melding
 
 **AC-04 (FR-06)**
 - Given: project-CRS ≠ bronlaag-CRS
 - When: gebruiker maakt parallelle lijnen en exporteert
 - Then: geometrie en lengtevalidatie blijven correct (in meters)
 
-**AC-05 (FR-07)**
+**AC-05 (FR-07/FR-08)**
 - Given: beheerde laag bevat n lijnen
 - When: gebruiker exporteert
-- Then: outputbestand bevat n lijnen en voldoet aan OTL-regels (of faalt expliciet met duidelijke melding)
+- Then: outputbestand bevat n assets/objecten en voldoet aan OTL-regels (of faalt expliciet met duidelijke melding)
 
-**AC-06 (FR-08/FR-09, NFR-06)**
-- Given: plugin is geïnstalleerd op een “schone” QGIS-installatie (zonder manuele pip installs in QGIS-Python)
-- When: gebruiker exporteert OTL
-- Then: export gebruikt OTLMOW-Model/OTLMOW-converter succesvol, of faalt met een duidelijke melding die naar de gedocumenteerde oplossing verwijst
+## Attributen & UI-knoppen
+Deze sectie specificeert de attributen die in de beheerde laag aanwezig kunnen zijn en de belangrijkste UI-knoppen die de plugin aanbiedt om lijnen te beheren.
+
+Attributen (voorstel; schema kan later verfijnd worden):
+- id (intern)
+- source_layer (naam bronlaag)
+- source_fid (originele feature id)
+- geometry_length_m (afgeleide lengte in meters)
+- position (links/midden/rechts) — keuzewaarde
+- type (bv. markeringstype) — keuzewaarde
+- coprocode (string / code)
+- color (hex of naam)
+- status (draft/validated/exported)
+- created_by (user/automation)
+- created_at (timestamp)
+- comment (vrij tekst)
+
+Extra plugin-knoppen / UI-elementen (voorstel):
+- Import selected — importeer geselecteerde features naar de beheerde laag
+- Copy parallel — activeer modaliteit voor click-to-create offset
+- Merge selected — combineer geselecteerde lijnen in de beheerde laag (vermijdt dubbele punten)
+- Split selected — splits een geselecteerde lijn in meerdere lijnen en kopieer/modify attributen
+- Export OTL — exporteer de beheerde laag naar OTL via OTLMOW-converter
+- Settings — open plugin instellingen (vendor policy, default CRS, storage optie memory/geopackage)
+
+Deze attributen en knoppen kunnen tijdens implementatie verder worden aangepast; ze vormen nu de basis voor de UI en het schema van de beheerde laag.
+
+**AC-06 (NFR-06)**
+- Given: plugin geïnstalleerd op een schone QGIS-installatie
+- When: gebruiker exporteert
+- Then: export gebruikt vendored OTLMOW-Model/Converter succesvol, of faalt met duidelijke melding naar documentatie
 
 **AC-07 (NFR-05)**
 - Given: dezelfde pluginversie
 - When: installatie/gebruik op Linux en op Windows
-- Then: kernflow (copy-parallel + export) werkt op beide platformen
+- Then: kernflow werkt op beide platformen
 
 **AC-08 (NFR-07)**
-- Given: OTLMOW-Model/Converter worden geüpdatet naar een nieuwe tag/commit
-- When: de vendoring-updateprocedure wordt uitgevoerd
-- Then:
-  - de exacte versies staan gedocumenteerd/gelocked,
-  - de plugin start zonder import errors,
-  - en de relevante testset draait groen (minimaal exportpad) op Linux én Windows.
+- Given: vendored packages worden geüpdatet via de update-procedure
+- When: procedure is uitgevoerd
+- Then: `vendor/LOCK.json` bevat exacte versies, plugin start zonder import errors en relevante tests draaien groen
 
 ---
 
-## Teststrategie (richtlijn)
-- **Unit tests (zonder QGIS):**
-  - validaties (minimale lengte, input checks),
-  - OTL-mapping/serialisatie (zodra OTL concreet is),
-  - wiskundige/algoritmische helpers.
-- **Integratietests (met PyQGIS):**
+## Teststrategie (aangevuld)
+- Unit tests:
+  - offset-berekening en helpers (zonder QGIS)
+  - lengtevalidatie (met simulaties in verschillende CRS)
+  - OTL-mapping (zolang OTLMOW-Model stabiel is; bij vendoring: import van vendored module in venv tijdens CI)
+- Integratietests (PyQGIS):
   - aanmaken beheerde laag, toevoegen features,
-  - CRS-transformaties,
-  - export (end-to-end) in een QGIS-omgeving.
+  - copy-parallel end-to-end in een QGIS test-omgeving,
+  - export end-to-end met vendored OTLMOW libraries.
+- Lint/structure checks:
+  - `scripts/check_plugin_structure.py` moet metadata validatie doen (inclusief `title`/`name`).
 
-## QGIS Python interpreter vs project-venv (veiligheid & werking)
-- **PyQGIS werkt meestal enkel betrouwbaar met de Python die bij QGIS hoort** (de “QGIS interpreter”).
-- Een **project-venv** is ideaal voor pure Python (unit tests, tooling), maar kan conflicteren met QGIS-dependencies als je PyQGIS probeert te “pip installen”.
-- Veilig uitgangspunt:
-  - gebruik de QGIS-interpreter voor code die `qgis.*` importeert;
-  - gebruik de project-venv voor QGIS-onafhankelijke code en unit tests.
-- Belangrijk: installeer niet zomaar packages in de QGIS-systeempython; dependency-conflicten kunnen QGIS breken. Documenteer elke extra dependency expliciet.
-- Omdat OTLMOW-Model en OTLMOW-converter externe dependencies zijn, moet de gekozen workaround (zie **NFR-06**) vermijden dat extra pip-installaties in de QGIS-systeempython nodig zijn.
+## Deployment & developer notes (kort)
+- `vendor/README.md` beschrijft hoe vendoren werkt en welke bestanden gelockt zijn.
+- `README.md` beschrijft symlink/junction stappen voor development op Linux en Windows.
+- CI moet ten minste:
+  - checken dat `metadata.txt` aanwezig en valide is,
+  - unit tests draaien,
+  - (optioneel) integratie export-test uitvoeren op een geschikte runner.
+
+## Appendix: Aanbevelingen voor implementatie-details
+- Gebruik `QgsGeometry.closestSegmentWithContext` of `QgsGeometry.project` / `line.interpolate` om het offset referentiepunt te vinden.
+- Gebruik `QgsDistanceArea` voor geodetische lengtemetingen indien nodig.
+- Houd PyQGIS-specifieke code in een adaptermodule (bv. `plugin/adapter/qgis_adapter.py`) zodat kernalgoritmes onafhankelijk getest kunnen worden.
+- Zorg dat `vendor/` toegevoegd wordt aan `sys.path` vóór de eerste import van vendored libraries, en log een duidelijke foutmelding als import faalt, met link naar vendor/README.md.
+
+---
+
+Als je wilt, kan ik nu:
+- automatisch `spec.md` committen (indien gewenst) of nog verdere aanpassingen maken (bijv. concrete template voor `vendor/LOCK.json`, voorbeeld `scripts/update_vendor.py` of `vendor/README.md`).
+- of direct `README.md` en `vendor/README.md` toevoegen met instructies voor symlinks en vendoring.
+
+Laat me weten welke vervolgstap je wil dat ik uitvoer.
