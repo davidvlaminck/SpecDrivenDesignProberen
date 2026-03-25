@@ -1,8 +1,46 @@
 # Introductie
 Dit project heeft als doel een QGIS-plugin te maken om **OTL-conforme markeringen** (lijnfeatures) aan te maken, te wijzigen/verwijderen en OTL-conform te exporteren.
 
-## Doel
-Gebruikers moeten snel een **parallelle lijn** kunnen aanmaken op basis van een bestaande lijn (bronlijn) en een klikpunt, en deze resultaten later kunnen exporteren volgens OTL-afspraken.
+# Doel
+Gebruikers moeten snel een **parallelle lijn** kunnen aanmaken op basis van een bestaande lijn (bronlijn) en een klikpunt, en deze resultaten later kunnen exporteren conform de OTL-standaard. 
+
+Daarbij moeten de knoppen in deze plug-in zo gebruiksvriendelijk mogelijk zijn, zodat de gebruikers minimale kennis en expertise nodig hebben om dit te kunnen gebruiken.
+
+We maken hierbij gebruik van Agentic AI en willen de repository zo inrichten dat we deze kunnen gebruiken om de ontwikkeling te versnellen, zonder dat we de controle verliezen over het eindresultaat.
+
+We testen hierbij het gebruik van Spec Driven Design waarbij je zoveel mogelijk gerichte context schrijft voor AI. We schrijven dus een uitgebreide specificatie van wat we willen bereiken, en laten AI deze specificatie gebruiken om de code te genereren. We zorgen er ook voor dat we zelf de controle houden over deze specificatie, en dat we deze kunnen aanpassen waar nodig. We zorgen er ook voor dat we de code die gegenereerd wordt kunnen testen, zodat we zeker weten dat deze doet wat we willen dat deze doet.
+
+We hergebruiken zoveel mogelijk de QGIS features.
+
+# Voorbeeld flow
+a) De gebruiker heeft een wegenregister laag klaarstaan in QGIS
+
+b) Selecteert één of meerdere lijnfeatures in deze laag
+
+c) Klik op een plugin-knop om deze lijnen toe te voegen aan een Markeringen-werklaag
+
+d) De gebruiker werkt nu in deze Markeringen-werklaag
+
+e) Optioneel: de gebruiker klikt meerdere features aan en klikt op een knop om deze te joinen (merge) of te offsetten.
+
+f) Optioneel: Merge knop voegt meerdere lijnen samen, waarbij er geen dubbele punten ontstaan
+
+g) Optioneel: Split knop laat toe om een lijn te splitsen in meerdere lijnen, waarbij de attributen van de bronlijn worden overgenomen en aangepast kunnen worden voor deze nieuwe lijnen.
+
+h) Optioneel: Offset knop maakt een parallelle lijn op basis van de geselecteerde lijn, waarbij je deze kan verschuiven door te klikken en te bewegen, en waarbij je ook kan kiezen om te kopiëren (ctrl+klik) of te verschuiven (klik). Dit werkt zoals een af/aan modus: zolang je in de modus blijft kan je van dezelfde bronlijn vertrekken en meerdere lijnen aanmaken tot je deze modus uitzet.
+
+i) de gebruiker vult attributen in voor deze lijnen, zoals kleur, positie (links, midden, rechts), type, coprocode, etc. waarna deze attributen berekend of afgeleid worden
+
+j) Optioneel: op basis van attributen symbologie aanpassen
+
+k) De gebruiker herhaalt een aantal van deze stappen
+
+l) De gebruiker klikt op de export knop. De volledige laag wordt geëxporteerd conform de OTL door gebruik te maken van de otlmow-converter package.
+
+bij c) gaan achterliggend niet alleen deze features gekopieerd worden, maar worden ook extra attributen toegevoegd die een gebruiker kan invullen, zoals keuzelijsten
+
+
+
 
 ## Scope
 ### In scope
