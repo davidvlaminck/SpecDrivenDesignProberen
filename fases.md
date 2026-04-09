@@ -1,215 +1,178 @@
-# Plan van aanpak in fases (voorbeeld)
+# Plan van aanpak in fases
 
-Doel: **zo snel mogelijk een werkende QGIS plugin** die we in QGIS kunnen testen (smoke test), en daarna iteratief uitbreiden met extra functionaliteit, hardere validaties en betere UX.
+Doel: de plugin iteratief opbouwen volgens de vernieuwde `spec.md`, met focus op de twee kernflows **Import selected** en **Copy parallel**, en met expliciete aandacht voor testbaarheid en QGIS-compatibiliteit.
 
-Dit document is bedoeld als:
-- ontwikkel-roadmap (in fases), én
-- stappenplan voor implementatie (ook geschikt om door een coding agent te laten uitvoeren).
+## Huidige status (wat al in de repo zit)
 
-## Uitgangspunten
-- Werk **iteratief**: elke fase eindigt met een installeerbare plugin + korte demo-instructies + tests.
-- Hou de kernlogica zo veel mogelijk **QGIS-onafhankelijk** (unit testbaar), en bouw een dunne PyQGIS “adapterlaag”.
-- **Vendoring** is voorlopig de gekozen manier om OTLMOW-Model en OTLMOW-converter te gebruiken zonder pip-installaties in de QGIS-systeempython (zie `spec.md` NFR-06).
-- Doelplatformen: **Linux en Windows** (zie `spec.md` NFR-05).
+### Fase 0 is afgerond
+- Basis plugin-structuur aanwezig in `otlmow_markeringen/`.
+- Plugin is importeerbaar zonder PyQGIS door lazy imports in `otlmow_markeringen/plugin.py`.
+- Minimale action/GUI lifecycle aanwezig (`initGui`, `unload`, click-handler).
+- Repo-check script aanwezig: `scripts/check_plugin_structure.py`.
+- Basistests aanwezig:
+  - `tests/test_phase0_plugin_import.py`
+  - `tests/test_validate_qgis_plugin_dir.py`
 
-## Definition of Done (algemeen, voor elke fase)
-- Code op main branch bouwt/werkt lokaal.
-- Spec en docs zijn bijgewerkt waar relevant.
-- Minstens 1 geautomatiseerde test waar mogelijk (unit of integratie).
-- Er is een korte “Try it in QGIS” checklist.
+### Nog niet geïmplementeerd (volgens spec)
+- Geen beheerde laag met schema/mapping (FR-01/02/03).
+- Geen `Import selected` flow.
+- Geen `Copy parallel` modus en offset-creatie (FR-04/05).
+- Geen lengte/CRS-validatie volgens Lambert2008/fallback (FR-06/07).
+- Geen OTL-export met OTLMOW-model/converter (FR-08/09).
+- Geen `vendor/`-beleid, lockfile en update-script (NFR-06 t.e.m. NFR-08).
 
 ---
 
-## Fase 0 — Repo skeleton + “kan in QGIS laden” (0.5–1 dag)
-**Doel:** zo snel mogelijk bevestigen dat de plugin laadt in QGIS, met een minimale knop/actie.
+## Uitgangspunten voor alle volgende fases
+- Elke fase levert een werkende tussenstap op die in QGIS getest kan worden.
+- PyQGIS-afhankelijke code blijft zo dun mogelijk; kernlogica komt in testbare modules.
+- Elke fase koppelt expliciet naar FR/AC in `spec.md`.
+- Geen fase is "done" zonder geautomatiseerde tests (minstens unit; integratie waar haalbaar).
+
+## Definition of Done (algemeen)
+- Relevante FR/AC voor de fase zijn aantoonbaar geïmplementeerd.
+- `pytest` draait groen voor toegevoegde tests.
+- Korte "Try in QGIS" stappen staan in docs of PR-notes.
+- `spec.md` en docs zijn gesynchroniseerd bij scopewijzigingen.
+
+---
+
+## Fase 1 - Import selected + beheerde laag (FR-01/02/03)
+**Doel:** geselecteerde single-part lijnen kunnen importeren naar een enkele door de plugin beheerde laag.
 
 **Scope**
-- Plugin-skelet (QGIS plugin structuur) met:
-  - minimaal 1 toolbar-knop die een melding toont (“Plugin loaded”).
-  - basis metadata.
-- Simpele logging.
+- Knop/actie `Import selected`.
+- Beheerde laag auto-aanmaken indien ontbrekend.
+- Alleen line features toelaten; multi-part overslaan met duidelijke melding.
+- Attribuutmapping met defaults + plugin-meta (`source_layer`, `source_fid`, `created_at`, ...).
 
-**Deliverables**
-- Werkende plugin die je kan installeren via “Install from ZIP” of via QGIS plugin folder.
-- Korte stappen om te testen in QGIS.
-
-**Acceptatie**
-- Plugin verschijnt in QGIS en kan geactiveerd worden.
-- Klik op knop → toont melding en logt naar QGIS message log.
+**Acceptatie (spec-koppeling)**
+- AC-01 voor foutgedrag bij ongeldige selectiecontext.
+- Main flow "Import selected" stap 1-5 werkt.
 
 **Tests**
-- (Optioneel) minimumeenheidstest voor een dummy helperfunctie.
+- Unit: selectievalidatie en mapping-defaults.
+- Integratie (indien PyQGIS testomgeving): import van geselecteerde features naar memory managed layer.
 
 ---
 
-## Fase 1 — Copy-parallel “happy path” (1–3 dagen)
-**Doel:** eerste echte kernflow: bronlijn selecteren + modus aan + klikpunt → nieuwe lijn in beheerde laag.
+## Fase 2 - Copy parallel modus (FR-04/05 basis)
+**Doel:** met exact 1 geselecteerde bronlijn en kaartklik een nieuwe parallelle lijn maken.
 
 **Scope**
-- UI:
-  - Toggle knop “Copy parallel” (aan/uit).
-- Basisbusiness rules:
-  - FR-01: exactly 1 bronlijn geselecteerd.
-  - FR-03: beheerde laag automatisch aanmaken.
-  - FR-04: bereken parallelle offset-lijn door klikpunt (eerste implementatie mag simplistisch zijn, zolang het duidelijk werkt).
+- Togglebare `Copy parallel` modus met zichtbare UI-status.
+- Preconditions afdwingen: exact 1 single-part bronlijn.
+- Klik op kaart triggert offset-creatie door klikpunt.
+- Nieuwe feature toevoegen aan dezelfde beheerde laag als fase 1.
 
-**Deliverables**
-- Werkende copy-parallel flow in QGIS.
-- “Beheerde laag” zichtbaar in layer panel.
-
-**Acceptatie**
-- AC-01, AC-02 uit `spec.md` werken voor de happy path.
+**Acceptatie (spec-koppeling)**
+- AC-01 en AC-02.
+- Subflow "Copy parallel" stap 1-4 en 6 werkt voor happy path.
 
 **Tests**
-- Unit tests voor input checks (0, 1, >1 selectie) via pure Python logic waar mogelijk.
-- (Als PyQGIS testomgeving beschikbaar is) 1 integratietest die een memory layer maakt en een feature toevoegt.
+- Unit: precondition checks (0, 1, >1 selectie; multipart blokkeren).
+- Unit: kern offset-berekening (QGIS-onafhankelijk waar mogelijk).
+- Integratie: modus aan, klik simuleren, 1 nieuwe feature in managed layer.
 
 ---
 
-## Fase 2 — Validaties + foutmeldingen + minimale UX (1–2 dagen)
-**Doel:** fouten zijn begrijpelijk, en ongeldige features worden niet toegevoegd.
+## Fase 3 - Geometrische validatie en foutmeldingen (FR-05/06)
+**Doel:** ongeldige geometrieën worden consequent geweigerd met duidelijke feedback.
 
 **Scope**
-- FR-05: minimale lengte ≥ 1.0 m (meters).
-- Basismeldingen:
-  - geen selectie / te veel selectie
-  - geen geldige parallel mogelijk
-  - resultaat te kort
-- UX:
-  - duidelijke status “modus aan/uit” (bv. checked state/tooltip).
+- Minimale lengtecontrole >= 1.0 m.
+- Validatie op invalid geometry / self-intersections / niet-construeerbare offset.
+- Eenduidige, bruikbare foutmeldingen met herstelhint.
 
-**Deliverables**
-- Gebruiksvriendelijke foutmeldingen.
-- Validatie actief.
-
-**Acceptatie**
-- AC-03 werkt.
+**Acceptatie (spec-koppeling)**
+- AC-03.
+- Subflow "Copy parallel" stap 5 correct afgedekt.
 
 **Tests**
-- Unit test suite voor validatieregels (min length).
+- Unit: lengtevalidatie en foutcodering.
+- Unit/integratie: invalid resultaat wordt niet toegevoegd.
 
 ---
 
-## Fase 3 — CRS/projecties correct (1–3 dagen)
-**Doel:** correct werken met verschillende CRS’en; lengtevalidatie gebeurt in meters.
+## Fase 4 - CRS- en metingen-correctheid (FR-07)
+**Doel:** berekeningen en lengtes blijven correct in meters, onafhankelijk van project-/laag-CRS.
 
 **Scope**
-- FR-06 implementeren met een expliciete keuze:
-  - optie A: geodetische meting (ellipsoïdaal) of
-  - optie B: herprojectie naar geschikte meter-CRS voor meting.
-- Documenteer de keuze in de repo.
+- Beslislogica uit spec implementeren:
+  - project-CRS in meters -> daarin rekenen,
+  - anders tijdelijk Lambert2008 (fallback Lambert72) of geodetische meting.
+- Duidelijke documentatie van gekozen pad.
 
-**Deliverables**
-- Consistente metingen/validaties.
-
-**Acceptatie**
-- AC-04 werkt (project-CRS ≠ laag-CRS scenario).
+**Acceptatie (spec-koppeling)**
+- AC-04.
 
 **Tests**
-- Unit tests voor CRS-keuze/logica (waar mogelijk).
-- Integratietest: project in CRS A, laag in CRS B, maak feature, check lengtevalidatie.
+- Unit: CRS-keuzelogica.
+- Integratie: project-CRS != layer-CRS scenario met correcte lengte-uitkomst.
 
 ---
 
-## Fase 4 — Vendoring OTLMOW packages + import smoke (1–3 dagen)
-**Doel:** OTLMOW-Model en OTLMOW-converter zijn beschikbaar in QGIS zonder pip install.
+## Fase 5 - Vendoring fundament + updateprocedure (NFR-06 t.e.m. NFR-08)
+**Doel:** OTLMOW-dependencies reproduceerbaar meeleveren binnen de plugin.
 
 **Scope**
-- Implementatie van vendoring:
-  - `vendor/` folder in plugin.
-  - `sys.path` injectie bij plugin start.
-  - eenvoudige smoke-check: imports lukken.
-- Basis dependency-documentatie:
-  - versies/tags/commits vastleggen.
+- `vendor/` structuur en `sys.path` injectie voor imports.
+- `vendor/README.md` + `vendor/LOCK.json`.
+- `scripts/update_vendor.py` voor gecontroleerde updates.
+- Basis import-smoke voor vendored libs.
 
-**Deliverables**
-- Plugin start in QGIS met OTLMOW imports beschikbaar.
-- `vendor/` bevat de gekozen versies.
-- `vendor/README.md` of `docs/dependencies.md` met versie-informatie.
-
-**Acceptatie**
-- AC-06 werkt in een “schone” QGIS omgeving.
+**Acceptatie (spec-koppeling)**
+- AC-06 en AC-08 (voor import/start en lock-consistentie).
 
 **Tests**
-- Integratietest/smoke: plugin start → `import` OTLMOW-Model + Converter ok.
+- Smoke test: vendored import lukt.
+- Script test: lockfile wordt correct gelezen/bijgewerkt.
 
 ---
 
-## Fase 5 — Eerste OTL-export “end-to-end” (2–5 dagen)
-**Doel:** export werkt met OTLMOW-converter.
+## Fase 6 - OTL export end-to-end (FR-08/09)
+**Doel:** beheerde laag exporteren naar OTL-conforme output via OTLMOW-model/converter.
 
 **Scope**
-- FR-07, FR-08, FR-09:
-  - minimal viable export (een eerste formaat kiezen).
-  - mapping van beheerde laag → OTL objects (minimale verplichte velden).
-  - duidelijke error bij ontbrekende verplichte data.
+- `Export OTL` actie.
+- Mapping managed-layer attributen -> OTL objecten.
+- Duidelijke foutafhandeling bij ontbrekende verplichte data.
 
-**Deliverables**
-- Exportknop + bestand output.
-- Document: “welk formaat, welke verplichte velden”.
-
-**Acceptatie**
-- AC-05 werkt voor een klein testdataset.
+**Acceptatie (spec-koppeling)**
+- AC-05.
 
 **Tests**
-- Unit tests voor mapping/serialisatie (waar QGIS-onafhankelijk).
-- Integratietest: maak 1 feature → export → output bestaat + basis inhoud controles.
+- Unit: mapping/serialisatie.
+- Integratie: n features in managed layer -> n objecten in exportresultaat.
 
 ---
 
-## Fase 6 — Cross-platform hardening (Windows + Linux) (1–3 dagen)
-**Doel:** installeren/werken op beide platformen zonder handmatige fixes.
+## Fase 7 - Cross-platform afronding en release hardening (NFR-05/09/10)
+**Doel:** stabiele werking op Linux en Windows + duidelijke installatie/dev workflow.
 
 **Scope**
-- Pad-handling (pathlib), file dialogs, newline/encoding.
-- Plugin packaging check (ZIP) op Windows.
+- README update met symlink/junction stappen voor beide platformen.
+- Metadata-validatie uitbreiden waar nodig (`name`, `qgisMinimumVersion`, ...).
+- Install/packaging smoke check op beide OS'en.
 
-**Deliverables**
-- Testnotities per OS.
-
-**Acceptatie**
-- AC-07 werkt.
+**Acceptatie (spec-koppeling)**
+- AC-07.
 
 **Tests**
-- CI (indien repo later CI krijgt): matrix Linux/Windows met minimaal unit tests.
-- Handmatige smoke test stappenlijst voor Windows.
+- Minstens unit tests op Linux/Windows.
+- Handmatige QGIS smoke checklist per OS.
 
 ---
 
-## Fase 7 — Update-proces voor vendored dependencies (NFR-07) (1–2 dagen)
-**Doel:** nieuwe versies van OTLMOW-Model/Converter gecontroleerd en reproduceerbaar integreren.
+## Backlog na deze fases (niet-kritisch)
+- `Merge selected` en `Split selected` acties.
+- Geavanceerde bulk-opties bovenop `Import selected`.
+- Extra UX (preview, geavanceerde instellingen, performance tuning).
 
-**Scope**
-- Script in `scripts/` om vendoring te updaten (semi-automatisch):
-  - input: gewenste tag/commit per package
-  - output: bijgewerkte `vendor/` + lock/manifest
-- Documenteer besluit: tags vs commits.
-
-**Deliverables**
-- Update-script + lockfile (bv. `vendor/LOCK.json`).
-
-**Acceptatie**
-- AC-08 werkt.
-
-**Tests**
-- Smoke test: na update-script → plugin start + imports ok.
-
----
-
-## Fase 8 — UX & kwaliteitsverbeteringen (doorlopend)
-**Mogelijke uitbreidingen**
-- Extra instellingen (offset lock, preview, snapping hints).
-- Undo/redo integratie.
-- Batch-export, extra OTL velden, validatie tegen domeinwaarden.
-- Performance bij grote bronlijnen.
-
----
-
-## Praktische task breakdown template (copy/paste)
-Voor elke fase kunnen we tickets zo uitschrijven:
-- [ ] Spec update (FR/NFR/AC’s waar nodig)
-- [ ] Implementatie (code)
-- [ ] Tests (unit/integratie)
-- [ ] Docs: “Try it in QGIS” stappen
-- [ ] Review checklist: Windows/Linux, clean QGIS install, logging
-
+## Praktische task-checklist per fase
+- [ ] Scope + FR/AC verwijzingen bevestigd
+- [ ] Implementatie afgerond
+- [ ] Unit tests toegevoegd
+- [ ] Integratietest toegevoegd of expliciet gemotiveerd waarom nog niet
+- [ ] Docs/README geüpdatet
+- [ ] Korte QGIS smoke-run uitgevoerd
