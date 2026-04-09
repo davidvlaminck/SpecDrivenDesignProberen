@@ -19,19 +19,19 @@ De korte voorbeeldstappen zijn hieronder geïntegreerd in de sectie "Gedetaillee
 
 
 
-## Scope (herzien)
-De eerste 42 regels hierboven vormen de leidraad voor het project. Hieronder zijn termen en boundaries verduidelijkt zodat de rest van dit document consistent is met die leidraad.
+## Scope 
 
 ### Belangrijke splitsing van flows
-Om verwarring te vermijden beschrijven we twee duidelijke en afzonderlijke flows die beide in de eerste 42 regels genoemd of geïmpliceerd worden:
+Om verwarring te vermijden beschrijven we twee duidelijke en afzonderlijke flows:
 
-- Import selected (optioneel helper-feature)
-  - Doel: één of meerdere geselecteerde lijnen uit een bestaande bronlaag kopiëren naar de door de plugin beheerde laag ('Markeringen'), waarbij relevante attributen worden overgenomen en aangevuld met plugin-specifieke velden (keuzelijsten, status, afgeleid waarden).
-  - Gebruik: gebruiker selecteert één of meerdere features en klikt op "Import selected". Dit is een losse actie (geen "Copy parallel" modus).
+- Import selected
+  - Doel: één of meerdere geselecteerde lijnen uit een bestaande bronlaag kopiëren naar de door de plugin beheerde laag ('Markeringen'), waarbij relevante attributen worden overgenomen en aangevuld met plugin-specifieke velden (keuzelijsten, status, afgeleide waarden).
+  - Gebruik: gebruiker selecteert één of meerdere features en klikt op "Import selected".
 
-- Copy parallel (core feature)
-  - Doel: op basis van exact één geselecteerde bronlijn en een kaartklik een nieuwe parallelle lijn (offset-curve) aanmaken die door het klikpunt gaat en toevoegen aan de beheerde laag. Deze modus blijft actief totdat de gebruiker ze uitschakelt.
+- Copy parallel
+  - Doel: op basis van exact één geselecteerde bronlijn en een kaartklik een nieuwe parallelle lijn (offset-curve) aanmaken die door het klikpunt gaat en toevoegen aan de door de plugin beheerde laag. Deze modus blijft actief totdat de gebruiker ze uitschakelt.
   - Voorwaarden: precies één geselecteerde bronlijn (FR-01). Als dat niet het geval is: geen creatie en duidelijke melding.
+  - Door het klikken op de knop gaat de modus copy parallel aan, totdat deze gedeactiveerd wordt (zelfde knop of cancel). Tijdens deze modus creëert elke kaartklik een nieuwe parallelle lijn op basis van de geselecteerde bronlijn en het klikpunt, of toont een foutmelding als creatie niet mogelijk is (multi-part geometrie, korte lijnen, self-intersections).
 
 ### In scope
 - Implementatie van beide hierboven beschreven flows, waarbij "Copy parallel" de kernfunctionaliteit is.
@@ -46,10 +46,10 @@ Om verwarring te vermijden beschrijven we twee duidelijke en afzonderlijke flows
 ## Terminologie & definities (uitgebreid)
 - **Bronlijn**: de geselecteerde enkelvoudige (single-part) lijnfeature (exact één) waarop een "Copy parallel" operatie is gebaseerd. Multi-part geometrieën zijn **niet toegestaan** als bronlijn; bij selectie van een multi-part geometrie moet de plugin een foutmelding tonen en de actie blokkeren.
 - **Beheerde laag**: een vectorlaag (memory of geopackage afhankelijk van implementatie) die door de plugin gemaakt en beheerd wordt en alle gegenereerde markeringen bevat.
-- **OTL-conform**: het exportresultaat voldoet aan de afgesproken OTL-structuur en vereiste attributen voor de doelconversie.
+- **OTL-conform**: het exportresultaat voldoet aan de OTL (= datastandaard) en vereiste attributen voor de doelconversie.
 - **Offset-referentiepunt**: het punt op de bronlijn dat het dichtst bij het klikpunt ligt (projectie van klikpunt op de bronlijn). Dat punt bepaalt het lokale tangentsegment voor het maken van de offset.
 
-## Main user flow — Import selected (primary)
+## Main user flow — Import selected
 1. Gebruiker selecteert één of meerdere lijnfeatures in een bronlaag.
 2. Gebruiker klikt op **Import selected**.
 3. De plugin valideert geselecteerde features: alleen single-part lijnen toegestaan in de beheerde laag; bij multi-part features: toon melding en sla die feature over (option: in een toekomstige uitbreiding aanbieden om automatisch te splitten).
@@ -58,7 +58,7 @@ Om verwarring te vermijden beschrijven we twee duidelijke en afzonderlijke flows
 6. De gebruiker kan vanuit de beheerde laag de **Copy parallel** subflow activeren om offsets op basis van één bronlijn te maken (zie subflow).
 7. Uiteindelijk kan de gebruiker de beheerde laag exporteren naar OTL via de export-knop.
 
-## Subflow — Copy parallel (offset creatie, detail)
+## Subflow — Copy parallel
 Doel: een hulpmiddel binnen de main workflow waarmee de gebruiker op basis van exact één geselecteerde single-part bronlijn en een kaartklik een parallelle lijn kan maken.
 1. Gebruiker selecteert exact één single-part lijn in de beheerde laag of in de bronlaag (bronlijn). Als de geselecteerde feature een multi-part geometrie is: toon foutmelding en stop.
 2. Gebruiker activeert de knop **"Copy parallel"**; de modus blijft actief en de UI geeft dit zichtbaar aan.
@@ -102,7 +102,7 @@ Doel: een hulpmiddel binnen de main workflow waarmee de gebruiker op basis van e
 - Implementatie-keuze: indien het project-CRS afwijkt van Lambert2008 en project-CRS is projected en units in meters: berekeningen en validatie gebeuren in het project-CRS. Anders: reprojecteer tijdelijk naar Lambert2008 (of gebruik geodetische metingen via QgsDistanceArea) om lengte in meters te bepalen. Deze keuze moet getest en gedocumenteerd.
 
 **FR-08 Export (OTL-conform)**
-- De exportactie gebruikt OTLMOW-Model (datamodel) en OTLMOW-converter (serialisatie) om OTL-conforme output te produceren.
+- De exportactie gebruikt OTLMOW-Model (datamodel) en OTLMOW-converter (wegschrijven naar bestanden) om OTL-conforme output te produceren.
 
 **FR-09 Externe libraries: OTLMOW-Model & OTLMOW-converter**
 - Gebruik de twee opgegeven externe repositories als single source of truth voor datamodel en conversie.
