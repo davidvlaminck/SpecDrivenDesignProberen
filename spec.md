@@ -8,7 +8,7 @@ Daarbij moeten de knoppen in deze plug-in zo gebruiksvriendelijk mogelijk zijn, 
 
 We maken hierbij gebruik van Agentic AI en willen de repository zo inrichten dat we deze kunnen gebruiken om de ontwikkeling te versnellen, zonder dat we de controle verliezen over het eindresultaat.
 
-We testen hierbij het gebruik van Spec Driven Design waarbij je zoveel mogelijk gerichte context schrijft voor AI. We schrijven dus een uitgebreide specificatie van wat we willen bereiken, en laten AI deze specificatie gebruiken om de code te genereren. We zorgen er ook voor dat we zelf de controle houden over deze specificatie, en dat we deze kunnen aanpassen waar nodig. We zorgen er ook voor dat we de code die gegenereerd wordt kunnen testen, zodat we zeker weten dat deze doet wat we willen dat deze doet.
+We testen hierbij het gebruik van Spec Driven Design waarbij je zoveel mogelijk gerichte context schrijft voor AI. We schrijven dus een uitgebreide specificatie van wat we willen bereiken, en laten AI deze specificatie gebruiken om de code te genereren. We zorgen er ook voor dat we zelf de controle houden over deze specificatie, en dat we deze kunnen aanpassen waar nodig. We zorgen er ook voor dat we de code die gegenereerd wordt kunnen testen, zodat we zeker weten dat deze doet wat we willen dat deze doet. AI mag geen bestanden zelf committen of de git historiek aanpassen.
 
 We hergebruiken zoveel mogelijk de QGIS features.
 
@@ -252,9 +252,3 @@ Deze attributen en knoppen kunnen tijdens implementatie verder worden aangepast;
 - Zorg dat `vendor/` toegevoegd wordt aan `sys.path` vóór de eerste import van vendored libraries, en log een duidelijke foutmelding als import faalt, met link naar vendor/README.md.
 
 ---
-
-Als je wilt, kan ik nu:
-- automatisch `spec.md` committen (indien gewenst) of nog verdere aanpassingen maken (bijv. concrete template voor `vendor/LOCK.json`, voorbeeld `scripts/update_vendor.py` of `vendor/README.md`).
-- of direct `README.md` en `vendor/README.md` toevoegen met instructies voor symlinks en vendoring.
-
-Laat me weten welke vervolgstap je wil dat ik uitvoer.
