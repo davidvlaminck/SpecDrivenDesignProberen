@@ -79,7 +79,10 @@ class OTLMOWMarkeringenPlugin:
         source_field_names = [field.name() for field in source_layer.fields()]
 
         candidates: list[ImportCandidate] = []
+        geometries_by_fid = {}
         skipped_missing_geometry = 0
+        skipped_unconvertible_multipart = 0
+        converted_multipart = 0
 
         for feature in selected_features:
             geometry = feature.geometry()
@@ -87,12 +90,25 @@ class OTLMOWMarkeringenPlugin:
                 skipped_missing_geometry += 1
                 continue
 
+            geometry_to_import = geometry
+            is_multipart = geometry_to_import.isMultipart()
+            if is_multipart:
+                converted_geometry = self._try_convert_multiline_to_singleline(geometry_to_import)
+                if converted_geometry is None:
+                    skipped_unconvertible_multipart += 1
+                    continue
+                geometry_to_import = converted_geometry
+                is_multipart = False
+                converted_multipart += 1
+
+            geometries_by_fid[int(feature.id())] = geometry_to_import
+
             candidates.append(
                 ImportCandidate(
                     source_layer=source_layer.name(),
                     source_fid=int(feature.id()),
-                    is_line=geometry.type() == 1,
-                    is_multipart=geometry.isMultipart(),
+                    is_line=geometry_to_import.type() == 1,
+                    is_multipart=is_multipart,
                     attributes=dict(zip(source_field_names, feature.attributes())),
                 )
             )
@@ -114,8 +130,8 @@ class OTLMOWMarkeringenPlugin:
         imported = 0
         now = datetime.now(timezone.utc)
         for candidate in validation.accepted:
-            source_feature = source_layer.getFeature(candidate.source_fid)
-            if not source_feature.isValid():
+            import_geometry = geometries_by_fid.get(candidate.source_fid)
+            if import_geometry is None or import_geometry.isEmpty():
                 continue
 
             mapped_attributes = build_managed_attributes(
@@ -124,10 +140,10 @@ class OTLMOWMarkeringenPlugin:
                 source_attributes=candidate.attributes,
                 created_at=now,
             )
-            mapped_attributes["geometry_length_m"] = source_feature.geometry().length()
+            mapped_attributes["geometry_length_m"] = import_geometry.length()
 
             new_feature = QgsFeature(managed_layer.fields())
-            new_feature.setGeometry(source_feature.geometry())
+            new_feature.setGeometry(import_geometry)
             for name in field_names:
                 if name in mapped_attributes:
                     new_feature[name] = mapped_attributes[name]
@@ -140,11 +156,32 @@ class OTLMOWMarkeringenPlugin:
 
         summary = (
             f"Import selected afgerond: {imported} geimporteerd, "
-            f"{validation.skipped_multipart} multipart overgeslagen, "
+            f"{converted_multipart} multipart geconverteerd, "
+            f"{validation.skipped_multipart + skipped_unconvertible_multipart} multipart overgeslagen, "
             f"{validation.skipped_not_line + skipped_missing_geometry} ongeldig."
         )
         self._notify(summary, Qgis.Info)
         QgsMessageLog.logMessage(summary, "OTLMOW Markeringen", Qgis.Info)
+
+    def _try_convert_multiline_to_singleline(self, geometry):
+        """Convert a multi-part line geometry into a single-part line where possible."""
+
+        from qgis.core import QgsGeometry
+
+        if geometry is None or geometry.isEmpty() or geometry.type() != 1:
+            return None
+        if not geometry.isMultipart():
+            return geometry
+
+        merged = geometry.mergeLines()
+        if merged is not None and not merged.isEmpty() and merged.type() == 1 and not merged.isMultipart():
+            return merged
+
+        parts = geometry.asMultiPolyline()
+        if len(parts) == 1:
+            return QgsGeometry.fromPolylineXY(parts[0])
+
+        return None
 
     def _ensure_managed_layer(self, source_layer):
         """Return the existing managed layer or create it with the Phase 1 schema."""
