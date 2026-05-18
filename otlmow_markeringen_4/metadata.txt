@@ -1,0 +1,22 @@
+[general]
+name=OTLMOW Markeringen 4
+title=OTLMOW Markeringen 4
+qgisMinimumVersion=4.0
+qgisMaximumVersion=4.99
+description=Prototype plugin for QGIS 4.x: import selected, copy-parallel markeringen + OTL export (spec-driven).
+version=0.0.0
+author=SpecDrivenDesignProberen
+email=
+about=QGIS 4.x-variant van de plugin met dezelfde basisfunctionaliteit als de 3.x-map.
+
+# Optional but useful metadata fields
+category=Experimental
+icon=icon.png
+
+[about]
+repository=
+tracker=
+homepage=
+
+[experimental]
+experimental=true
