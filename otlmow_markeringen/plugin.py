@@ -53,17 +53,17 @@ class OTLMOWMarkeringenPlugin:
     def _on_action_triggered(self) -> None:
         QAction, _QIcon, QCoreApplication, QgsMessageLog, Qgis = _safe_import_qgis()
 
-        msg = QCoreApplication.translate(
+        message = QCoreApplication.translate(
             "OTLMOWMarkeringen",
             "OTLMOW Markeringen: plugin loaded and action works.",
         )
 
         # Show a message in QGIS UI (message bar)
         try:
-            self.iface.messageBar().pushInfo("OTLMOW Markeringen", msg)
+            self.iface.messageBar().pushInfo("OTLMOW Markeringen", message)
         except Exception:
             # Some interfaces in tests/mocks might not have a messageBar.
             pass
 
-        QgsMessageLog.logMessage(msg, "OTLMOW Markeringen", Qgis.Info)
+        QgsMessageLog.logMessage(message, "OTLMOW Markeringen", Qgis.Info)
 
