@@ -305,8 +305,8 @@ class OTLMOWMarkeringenPlugin:
             self._notify("Klik naast de bronlijn om een parallelle lijn te maken.", Qgis.Warning)
             return
 
-        positive = source_geometry.offsetCurve(distance, 8, 1, 2.0)
-        negative = source_geometry.offsetCurve(-distance, 8, 1, 2.0)
+        positive = self._compute_offset_curve(source_geometry, distance)
+        negative = self._compute_offset_curve(source_geometry, -distance)
 
         candidates = [g for g in (positive, negative) if g is not None and not g.isEmpty()]
         if not candidates:
@@ -394,6 +394,30 @@ class OTLMOWMarkeringenPlugin:
         managed_layer.updateFields()
         project.addMapLayer(managed_layer)
         return managed_layer
+
+    def _compute_offset_curve(self, geometry, distance: float):
+        """Compute offset curve with a join-style enum compatible across QGIS/PyQt versions."""
+
+        from qgis.PyQt.QtCore import Qt
+
+        join_styles = []
+        if hasattr(Qt, "RoundJoin"):
+            join_styles.append(Qt.RoundJoin)
+
+        pen_join_style = getattr(getattr(Qt, "PenJoinStyle", None), "RoundJoin", None)
+        if pen_join_style is not None:
+            join_styles.append(pen_join_style)
+
+        for join_style in join_styles:
+            try:
+                return geometry.offsetCurve(distance, 8, join_style, 2.0)
+            except TypeError:
+                continue
+
+        try:
+            return geometry.offsetCurve(distance, 8)
+        except TypeError:
+            return None
 
     def _notify(self, message: str, level) -> None:
         """Send a best-effort user-facing message through the QGIS message bar."""
