@@ -40,6 +40,8 @@ Doel: de plugin iteratief opbouwen volgens de vernieuwde `spec.md`, met focus op
 ## Fase 1 - Import selected + beheerde laag (FR-01/02/03)
 **Doel:** geselecteerde single-part lijnen kunnen importeren naar een enkele door de plugin beheerde laag.
 
+**Status:** geimplementeerd in deze iteratie (basisversie, klaar voor QGIS smoke test).
+
 **Scope**
 - Knop/actie `Import selected`.
 - Beheerde laag auto-aanmaken indien ontbrekend.
@@ -54,10 +56,19 @@ Doel: de plugin iteratief opbouwen volgens de vernieuwde `spec.md`, met focus op
 - Unit: selectievalidatie en mapping-defaults.
 - Integratie (indien PyQGIS testomgeving): import van geselecteerde features naar memory managed layer.
 
+**Opgeleverd**
+- Plugin-actie `Import selected` in `otlmow_markeringen/plugin.py`.
+- Auto-creatie van beheerde memory-laag `OTLMOW Markeringen` met basisschema.
+- Validatie: alleen single-part lijnen worden geimporteerd; multipart en ongeldige selectie worden overgeslagen met melding.
+- Mapping/default logica in `otlmow_markeringen/import_selected.py`.
+- Nieuwe unittests in `tests/test_phase1_import_logic.py`.
+
 ---
 
 ## Fase 2 - Copy parallel modus (FR-04/05 basis)
-**Doel:** met exact 1 geselecteerde bronlijn en kaartklik een nieuwe parallelle lijn maken.
+**Doel:** met exact 1 geselecteerde bronlijn en kaartklik een nieuwe parallelle lijn maken in de nieuwe laag.
+
+**Status:** geimplementeerd in deze iteratie (basisversie, klaar voor QGIS 3 smoke test).
 
 **Scope**
 - Togglebare `Copy parallel` modus met zichtbare UI-status.
@@ -73,6 +84,14 @@ Doel: de plugin iteratief opbouwen volgens de vernieuwde `spec.md`, met focus op
 - Unit: precondition checks (0, 1, >1 selectie; multipart blokkeren).
 - Unit: kern offset-berekening (QGIS-onafhankelijk waar mogelijk).
 - Integratie: modus aan, klik simuleren, 1 nieuwe feature in managed layer.
+
+**Opgeleverd**
+- Nieuwe checkbare plugin-actie `Copy parallel` in zowel `otlmow_markeringen/plugin.py` als `otlmow_markeringen_4/plugin.py`.
+- Togglebare kaartmodus met `QgsMapToolEmitPoint`; elke klik probeert exact 1 parallelle lijn te maken.
+- Preconditions afgedwongen via testbare helpermodule `copy_parallel.py` (exact 1 selectie, lijngeometrie, single-part).
+- Offset-creatie via QGIS `offsetCurve` (beide zijden geprobeerd, dichtst bij klikpunt gekozen).
+- Nieuwe lijn wordt aan dezelfde beheerde laag toegevoegd met bestaande attribuutmapping/defaults.
+- Nieuwe unittests in `tests/test_phase2_copy_parallel_logic.py`.
 
 ---
 
