@@ -10,6 +10,10 @@ from .import_selected import (
     validate_import_candidates,
 )
 from .copy_parallel import CopyParallelCandidate, validate_copy_parallel_selection
+from .geometry_validation import (
+    validate_offset_geometry_for_copy_parallel,
+    validate_source_geometry_for_copy_parallel,
+)
 
 
 def _safe_import_qgis():
@@ -299,6 +303,15 @@ class OTLMOWMarkeringenPlugin:
             self._notify("Copy parallel ondersteunt enkel single-part lijnen.", Qgis.Warning)
             return
 
+        source_validation = validate_source_geometry_for_copy_parallel(
+            is_empty=source_geometry.isEmpty(),
+            is_geos_valid=self._is_geos_valid(source_geometry),
+            is_simple=source_geometry.isSimple(),
+        )
+        if not source_validation.is_valid:
+            self._notify(str(source_validation.message), Qgis.Warning)
+            return
+
         point_geometry = QgsGeometry.fromPointXY(point)
         distance = source_geometry.distance(point_geometry)
         if distance <= 0.0:
@@ -310,7 +323,10 @@ class OTLMOWMarkeringenPlugin:
 
         candidates = [g for g in (positive, negative) if g is not None and not g.isEmpty()]
         if not candidates:
-            self._notify("Kon geen parallelle lijn berekenen voor dit klikpunt.", Qgis.Warning)
+            self._notify(
+                "Kon geen parallelle lijn berekenen voor dit klikpunt. Probeer een ander klikpunt of een eenvoudigere bronlijn.",
+                Qgis.Warning,
+            )
             return
 
         offset_geometry = min(candidates, key=lambda g: g.distance(point_geometry))
@@ -321,8 +337,14 @@ class OTLMOWMarkeringenPlugin:
                 return
             offset_geometry = converted
 
-        if offset_geometry.length() < 1.0:
-            self._notify("Berekende lijn is korter dan 1.0 m en wordt niet toegevoegd.", Qgis.Warning)
+        offset_validation = validate_offset_geometry_for_copy_parallel(
+            is_empty=offset_geometry.isEmpty(),
+            is_geos_valid=self._is_geos_valid(offset_geometry),
+            is_simple=offset_geometry.isSimple(),
+            length_m=offset_geometry.length(),
+        )
+        if not offset_validation.is_valid:
+            self._notify(str(offset_validation.message), Qgis.Warning)
             return
 
         managed_layer = self._ensure_managed_layer(source_layer)
@@ -427,6 +449,14 @@ class OTLMOWMarkeringenPlugin:
             return geometry.offsetCurve(distance, 8)
         except TypeError:
             return None
+
+    def _is_geos_valid(self, geometry) -> bool:
+        """Return GEOS validity while tolerating API differences between QGIS versions."""
+
+        try:
+            return bool(geometry.isGeosValid())
+        except Exception:
+            return bool(not geometry.isEmpty())
 
     def _notify(self, message: str, level) -> None:
         """Send a best-effort user-facing message through the QGIS message bar."""

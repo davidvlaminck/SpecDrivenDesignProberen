@@ -98,6 +98,8 @@ Doel: de plugin iteratief opbouwen volgens de vernieuwde `spec.md`, met focus op
 ## Fase 3 - Geometrische validatie en foutmeldingen (FR-05/06)
 **Doel:** ongeldige geometrieën worden consequent geweigerd met duidelijke feedback.
 
+**Status:** geimplementeerd in deze iteratie (basisversie, klaar voor QGIS 3 smoke test).
+
 **Scope**
 - Minimale lengtecontrole >= 1.0 m.
 - Validatie op invalid geometry / self-intersections / niet-construeerbare offset.
@@ -110,6 +112,13 @@ Doel: de plugin iteratief opbouwen volgens de vernieuwde `spec.md`, met focus op
 **Tests**
 - Unit: lengtevalidatie en foutcodering.
 - Unit/integratie: invalid resultaat wordt niet toegevoegd.
+
+**Opgeleverd**
+- Nieuwe validatiemodule `geometry_validation.py` in zowel `otlmow_markeringen/` als `otlmow_markeringen_4/`.
+- Bron- en offsetgeometrie worden nu gevalideerd op GEOS-validiteit en self-intersections (`isSimple`).
+- Offsetresultaten korter dan 1.0 m worden geweigerd met duidelijke gebruikersmelding.
+- Niet-construeerbare offset geeft een expliciete melding met herstelhint (ander klikpunt/eenvoudigere bronlijn).
+- Nieuwe unittests in `tests/test_phase3_geometry_validation.py`.
 
 ---
 
