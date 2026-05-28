@@ -398,9 +398,18 @@ class OTLMOWMarkeringenPlugin:
     def _compute_offset_curve(self, geometry, distance: float):
         """Compute offset curve with a join-style enum compatible across QGIS/PyQt versions."""
 
+        from qgis.core import Qgis
         from qgis.PyQt.QtCore import Qt
 
         join_styles = []
+        qgis_join_style = getattr(getattr(Qgis, "JoinStyle", None), "Round", None)
+        if qgis_join_style is not None:
+            join_styles.append(qgis_join_style)
+
+        qgis_join_style_legacy = getattr(Qgis, "JoinStyleRound", None)
+        if qgis_join_style_legacy is not None:
+            join_styles.append(qgis_join_style_legacy)
+
         if hasattr(Qt, "RoundJoin"):
             join_styles.append(Qt.RoundJoin)
 
